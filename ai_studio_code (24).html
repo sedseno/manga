@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Workshop</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip for CBZ handling & Audio Zips -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="window.isOpenCvReady = true;"></script>
+    <!-- TensorFlow.js & BlazeFace for Manhwa Face Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --surface-color: #1e1e1e;
+            --surface-alt: #282828;
+            --border-color: #333333;
+            --accent-color: #bb86fc;
+            --accent-hover: #9965d4;
+            --danger-color: #ff4757;
+            --success-color: #2ed573;
+            --warning-color: #ffa502;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            height: 100%;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        header {
+            background-color: var(--surface-color);
+            padding: 14px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        main {
+            flex: 1; 
+            padding-bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .view-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .toolbar {
+            width: 100%;
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            background-color: var(--bg-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        button {
+            background-color: var(--surface-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 9px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        button:active { transform: scale(0.97); }
+        button:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        button.primary { background-color: rgba(187, 134, 252, 0.1); border-color: var(--accent-color); color: var(--accent-color); }
+        button.action { background-color: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: bold; }
+        button.danger { background-color: rgba(255, 71, 87, 0.1); border-color: var(--danger-color); color: var(--danger-color); }
+
+        #strip-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            margin-top: 10px;
+        }
+
+        .page-wrapper {
+            position: relative;
+            width: 100%;
+            display: block;
+        }
+
+        .page-wrapper img {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        #strip-container.drawing-enabled .page-wrapper {
+            cursor: crosshair;
+            touch-action: none; 
+        }
+
+        .drawn-box {
+            position: absolute;
+            border: 3px solid var(--accent-color);
+            background-color: rgba(187, 134, 252, 0.2);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        .drawn-box .delete-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 85px;
+            left: 16px;
+            z-index: 50;
+            background-color: var(--surface-color);
+            border: 2px solid var(--border-color);
+            border-radius: 30px;
+            padding: 10px 18px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .fab.active { background-color: var(--accent-color); color: #000; border-color: var(--accent-color); }
+
+        /* Bottom Nav Bar (3 Tabs) */
+        .bottom-bar {
+            background-color: var(--surface-color);
+            height: 65px;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            z-index: 100;
+        }
+
+        .bottom-bar-item {
+            color: #888;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            gap: 4px;
+            flex: 1;
+            padding: 8px 0;
+            transition: color 0.2s;
+        }
+
+        .bottom-bar-item.active { color: var(--accent-color); }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 800px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .card h3 {
+            font-size: 1.05rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-color);
+        }
+
+        .card p {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
+        input[type="text"], input[type="password"], select, textarea {
+            background: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-color); }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-waiting { background: rgba(255, 255, 255, 0.1); color: #888; }
+        .status-analyzing, .status-generating, .status-recording { background: rgba(255, 165, 2, 0.2); color: var(--warning-color); }
+        .status-writing { background: rgba(187, 134, 252, 0.2); color: var(--accent-color); }
+        .status-done, .status-ready { background: rgba(46, 213, 115, 0.2); color: var(--success-color); }
+
+        .feed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .feed-card {
+            background: var(--surface-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .feed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feed-split {
+            display: flex;
+            gap: 10px;
+        }
+
+        .feed-thumb {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        .feed-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .feed-content textarea {
+            height: 60px;
+            resize: none;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .audio-player-wrap {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        audio {
+            width: 100%;
+            height: 32px;
+            outline: none;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 200;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .modal-header {
+            padding: 14px; background: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-body { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .face-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; }
+        .face-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 2px solid var(--border-color); background: #000; cursor: pointer; }
+        .face-item img { width: 100%; height: 100%; object-fit: cover; }
+        .face-item.selected { border-color: var(--accent-color); box-shadow: 0 0 10px rgba(187, 134, 252, 0.4); }
+        .modal-footer-panel { background: var(--surface-color); border-top: 1px solid var(--border-color); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+        #manual-snip-container {
+            width: 100%;
+            position: relative;
+            user-select: none;
+            touch-action: none;
+            background: #000;
+            margin-top: 10px;
+        }
+
+        #manual-snip-container img {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        .snip-box {
+            position: absolute;
+            border: 2px dashed #2ed573;
+            background: rgba(46, 213, 115, 0.25);
+            pointer-events: none;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Workshop</h1>
+    </header>
+
+    <main>
+        <!-- TAB 1: PROCESSING VIEW -->
+        <div id="view-processing" class="view-section">
+            <div class="toolbar">
+                <input type="file" id="cbz-input" accept=".cbz,.zip" class="hidden">
+                <button id="btn-import" onclick="document.getElementById('cbz-input').click()">
+                    <i data-lucide="folder-input"></i> Import CBZ
+                </button>
+                <button id="btn-download-pages" class="hidden">
+                    <i data-lucide="download"></i> Download Pages
+                </button>
+                <button id="btn-stitch" class="hidden primary">
+                    <i data-lucide="gallery-vertical-end"></i> Stitch Panels
+                </button>
+                <button id="btn-auto-detect" class="hidden action">
+                    <i data-lucide="scan"></i> Auto Detect
+                </button>
+                <button id="btn-export-panels" class="hidden primary">
+                    <i data-lucide="archive"></i> Export Cropped
+                </button>
+            </div>
+
+            <div id="strip-container"></div>
+        </div>
+
+        <!-- TAB 2: SCRIPT / AI VIEW -->
+        <div id="view-script" class="view-section hidden">
+            <div class="dashboard-container">
+                <div class="card">
+                    <h3><i data-lucide="key"></i> Google Gemini API Settings</h3>
+                    <p>Uses Gemini Multimodal models to read manga pages & script panel cutouts.</p>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; gap: 8px;">
+                            <!-- NO HARDCODED KEY: Pulls safely from phone localStorage -->
+                            <input type="password" id="gemini-api-key" placeholder="Paste Gemini API Key" value="">
+                            <button onclick="toggleKeyVisibility()" style="flex-shrink: 0;"><i data-lucide="eye"></i></button>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="gemini-model-select">
+                                <option value="auto">⚡ Auto-Detect Best Available (Recommended)</option>
+                                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest</option>
+                            </select>
+                        </div>
+                        <button class="primary" onclick="testApiKeyAndFetchModels()" style="width: 100%; justify-content: center;">
+                            <i data-lucide="check-circle-2"></i> Verify Key & Query Active Models
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><i data-lucide="database"></i> Chapter Data Source</h3>
+                    <p>Sync raw chapter pages & cropped panels from Tab 1, or upload standalone files.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="primary" onclick="syncFromProcessingTab()" style="justify-content: center;">
+                            <i data-lucide="refresh-cw"></i> ⚡ Sync from Processing Tab
+                        </button>
+                        
+                        <div style="display: flex; gap: 8px;">
+                            <input type="file" id="raw-cbz-ai-input" accept=".cbz,.zip" class="hidden">
+                            <button onclick="document.getElementById('raw-cbz-ai-input').click()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="book-open"></i> Upload Raw CBZ
+                            </button>
+                            
+                            <input type="file" id="panels-zip-ai-input" accept=".zip" class="hidden">
+                            <button onclick="document.getElementById('panels-zip-ai-input').click()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="images"></i> Upload Panels Zip
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 12px; font-size: 12px; color: #888; display: flex; justify-content: space-between;">
+                        <span id="ai-raw-status">Raw Pages: 0</span>
+                        <span id="ai-panels-status">Panels: 0</span>
+                        <span id="ai-cast-status">Cast: 0</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i data-lucide="sparkles"></i> AI Recap Generation</h3>
+                        <span id="overall-status-badge" class="status-badge status-waiting">[IDLE]</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="ai-progress-bar" class="progress-bar-fill"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #777; margin-top: 6px;">
+                        <span id="ai-progress-text">Ready to run</span>
+                        <span id="ai-model-active-badge">Active: Auto</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button id="btn-run-ai" class="action" onclick="runAiRecapPipeline()" style="flex: 1; justify-content: center;">
+                            <i data-lucide="play"></i> Generate Recap Script
+                        </button>
+                        <button onclick="exportScriptText()" style="flex-shrink: 0;"><i data-lucide="copy"></i> Copy</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i data-lucide="list"></i> Script Timeline Preview</h3>
+                        <span id="panel-count-badge" style="font-size: 12px; color: #888;">0 Panels</span>
+                    </div>
+                    <div id="script-preview-feed" class="feed-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: TTS / AUDIO GENERATOR VIEW -->
+        <div id="view-tts" class="view-section hidden">
+            <div class="dashboard-container">
+                
+                <div class="card">
+                    <h3><i data-lucide="mic"></i> Edge-TTS Neural Voice Engine</h3>
+                    <p>Free, high-speed Microsoft Edge Read Aloud voices powered by your Cloudflare Worker.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <label style="font-size: 11px; color: #888;">Cloudflare Worker Endpoint URL:</label>
+                            <input type="text" id="edge-worker-url" placeholder="https://your-worker-name.workers.dev" value="">
+                            <span style="font-size: 10px; color: #666; margin-top: 3px; display: block;">Paste your deployed Cloudflare Worker URL above (it saves automatically on your phone).</span>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 11px; color: #888;">Narrator Voice Actor:</label>
+                            <select id="tts-voice-select">
+                                <option value="en-US-ChristopherNeural">Christopher (Male - Authoritative / YouTube Recap #1)</option>
+                                <option value="en-US-GuyNeural">Guy (Male - Energetic Storyteller)</option>
+                                <option value="en-US-EricNeural">Eric (Male - Deep & Cinematic)</option>
+                                <option value="en-US-RogerNeural">Roger (Male - Calm & Focused)</option>
+                                <option value="en-US-BrianNeural">Brian (Male - Youthful & Clear)</option>
+                                <option value="en-US-JennyNeural">Jenny (Female - Natural & Engaging)</option>
+                                <option value="en-US-AriaNeural">Aria (Female - Crisp & Expressive)</option>
+                                <option value="en-GB-RyanNeural">Ryan (Male - British Documentary Style)</option>
+                                <option value="en-GB-SoniaNeural">Sonia (Female - British Storyteller)</option>
+                            </select>
+                        </div>
+
+                        <div style="display: flex; gap: 8px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #888;">Speech Speed (Rate):</label>
+                                <select id="tts-rate-select">
+                                    <option value="+15%">+15% (Recap Fast - Recommended)</option>
+                                    <option value="+20%">+20% (Ultra Fast)</option>
+                                    <option value="+10%">+10% (Brisk)</option>
+                                    <option value="+0%">+0% (Normal Pace)</option>
+                                    <option value="-10%">-10% (Deliberate)</option>
+                                </select>
+                            </div>
+
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #888;">Pitch Adjustment:</label>
+                                <select id="tts-pitch-select">
+                                    <option value="+0Hz">+0Hz (Natural)</option>
+                                    <option value="-5Hz">-5Hz (Deeper)</option>
+                                    <option value="-10Hz">-10Hz (Cinematic Deep)</option>
+                                    <option value="+5Hz">+5Hz (Slightly Higher)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button onclick="testVoiceSample()" style="width: 100%; justify-content: center;">
+                            <i data-lucide="play-circle"></i> Listen to Voice Sample
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><i data-lucide="file-text"></i> Script Audio Queue</h3>
+                    <p>Sync narration from Tab 2 or import a script JSON / text file.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="primary" onclick="syncTtsFromScriptTab()" style="justify-content: center;">
+                            <i data-lucide="refresh-cw"></i> ⚡ Sync Script from Script Tab
+                        </button>
+
+                        <div style="display: flex; gap: 8px;">
+                            <input type="file" id="tts-script-file-input" accept=".json,.txt" class="hidden">
+                            <button onclick="document.getElementById('tts-script-file-input').click()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="upload"></i> Load Script (.json / .txt)
+                            </button>
+                            <button onclick="exportTtsScriptJson()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="download"></i> Save Script JSON
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i data-lucide="volume-2"></i> Voiceover Synthesis</h3>
+                        <span id="tts-overall-badge" class="status-badge status-waiting">[0 / 0 READY]</span>
+                    </div>
+
+                    <div class="progress-bar-container">
+                        <div id="tts-progress-bar" class="progress-bar-fill"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #777; margin-top: 6px;">
+                        <span id="tts-progress-text">Ready to synthesize</span>
+                        <span id="tts-total-duration">Total Audio: 0.0s</span>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button id="btn-run-all-tts" class="action" onclick="generateAllTts()" style="flex: 1; justify-content: center;">
+                            <i data-lucide="play"></i> Generate All Panel TTS
+                        </button>
+                        <button onclick="downloadAllTtsZip()" style="flex-shrink: 0;">
+                            <i data-lucide="archive"></i> Download Audio (Zip)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i data-lucide="headphones"></i> Panel Voiceover Previews</h3>
+                        <span id="tts-count-badge" style="font-size: 12px; color: #888;">0 Audio Panels</span>
+                    </div>
+                    <div id="tts-preview-feed" class="feed-list">
+                        <div style="text-align: center; color: #666; font-size: 12px; padding: 20px;">
+                            No script loaded. Sync from the Script Tab or import a script file.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <button id="btn-draw-mode" class="fab hidden" onclick="toggleDrawMode()">
+        <i data-lucide="crop"></i> <span>Draw Mode: OFF</span>
+    </button>
+
+    <nav class="bottom-bar">
+        <a class="bottom-bar-item active" id="tab-nav-processing" onclick="switchTab('processing')">
+            <i data-lucide="layers"></i>
+            <span>Processing</span>
+        </a>
+        <a class="bottom-bar-item" id="tab-nav-script" onclick="switchTab('script')">
+            <i data-lucide="bot"></i>
+            <span>Script</span>
+        </a>
+        <a class="bottom-bar-item" id="tab-nav-tts" onclick="switchTab('tts')">
+            <i data-lucide="volume-2"></i>
+            <span>TTS</span>
+        </a>
+    </nav>
+
+    <!-- CHARACTER CAST MODAL -->
+    <div id="modal-characters" class="modal hidden">
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="sparkles" style="color: var(--accent-color);"></i>
+                <h3 style="font-size: 1.1rem;">Character Cast Builder</h3>
+            </div>
+            <button onclick="closeCharacterModal()" style="padding: 6px 12px;">
+                <i data-lucide="check"></i> Done
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="display: flex; gap: 8px;">
+                <input type="file" id="char-cbz-input" accept=".cbz,.zip" class="hidden">
+                <button class="primary" onclick="document.getElementById('char-cbz-input').click()" style="flex: 1; justify-content: center;">
+                    <i data-lucide="folder-search"></i> Scan CBZ
+                </button>
+                <button onclick="openManualSnipModal()" style="justify-content: center;">
+                    <i data-lucide="scissors"></i> Manual Snip
+                </button>
+                <button onclick="exportCharactersJSON()"><i data-lucide="download"></i> JSON</button>
+            </div>
+            <div id="char-scan-status" style="font-size: 12px; color: #aaa; text-align: center;">Scan faces or tap to assign roles.</div>
+            <div id="face-grid" class="face-grid"></div>
+        </div>
+        <div class="modal-footer-panel">
+            <div class="input-group">
+                <input type="text" id="char-name-input" placeholder="Character Name (e.g. Arthur)">
+                <select id="char-role-select" style="max-width: 140px;">
+                    <option value="Main Character">Main Character</option>
+                    <option value="Antagonist">Antagonist</option>
+                    <option value="Supporting">Supporting</option>
+                    <option value="Love Interest">Love Interest</option>
+                    <option value="Extra">Extra</option>
+                </select>
+            </div>
+            <button class="action" onclick="saveSelectedCharacter()" style="width: 100%; justify-content: center;">
+                <i data-lucide="user-check"></i> Assign to Character
+            </button>
+        </div>
+    </div>
+
+    <!-- SUB-MODAL: MANUAL FACE SNIP TOOL -->
+    <div id="modal-manual-snip" class="modal hidden" style="z-index: 250;">
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="scissors" style="color: var(--accent-color);"></i>
+                <h3 style="font-size: 1rem;">Drag over face to crop</h3>
+            </div>
+            <button onclick="closeManualSnipModal()" style="padding: 6px 12px;">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 10px;">
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
+                <button onclick="changeSnipPage(-1)"><i data-lucide="chevron-left"></i> Prev</button>
+                <span id="snip-page-indicator" style="font-size: 13px;">Page 1</span>
+                <button onclick="changeSnipPage(1)">Next <i data-lucide="chevron-right"></i></button>
+            </div>
+            <div id="manual-snip-container">
+                <img id="manual-snip-img" src="" alt="Manga Page">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        window.isOpenCvReady = false;
+
+        let currentTab = 'processing';
+        let extractedPages = []; 
+        let isDrawMode = false;
+        let savedCharacters = JSON.parse(localStorage.getItem('workshop_characters') || '[]');
+        
+        let aiRawPages = [];     
+        let aiPanels = [];       
+        let isAiRunning = false;
+        let resolvedModelName = 'gemini-2.5-flash';
+
+        let ttsPanels = [];
+        let isTtsRunning = false;
+        let scannerPages = [];
+        let currentSnipPageIndex = 0;
+
+        // API Key Init from phone storage
+        const apiKeyInput = document.getElementById('gemini-api-key');
+        const storedKey = localStorage.getItem('workshop_gemini_key');
+        if (storedKey) apiKeyInput.value = storedKey;
+        apiKeyInput.addEventListener('change', () => {
+            localStorage.setItem('workshop_gemini_key', apiKeyInput.value.trim());
+        });
+
+        // Worker URL Init from phone storage
+        const workerUrlInput = document.getElementById('edge-worker-url');
+        const storedWorker = localStorage.getItem('workshop_edge_worker_url');
+        if (storedWorker) workerUrlInput.value = storedWorker;
+        workerUrlInput.addEventListener('change', () => {
+            localStorage.setItem('workshop_edge_worker_url', workerUrlInput.value.trim());
+        });
+
+        function toggleKeyVisibility() {
+            apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.bottom-bar-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-nav-${tab}`).classList.add('active');
+
+            document.getElementById('view-processing').classList.add('hidden');
+            document.getElementById('view-script').classList.add('hidden');
+            document.getElementById('view-tts').classList.add('hidden');
+            document.getElementById('btn-draw-mode').classList.add('hidden');
+
+            if (tab === 'processing') {
+                document.getElementById('view-processing').classList.remove('hidden');
+                if (document.getElementById('strip-container').children.length > 0) {
+                    document.getElementById('btn-draw-mode').classList.remove('hidden');
+                }
+            } else if (tab === 'script') {
+                document.getElementById('view-script').classList.remove('hidden');
+                updateAiSyncBadges();
+            } else if (tab === 'tts') {
+                document.getElementById('view-tts').classList.remove('hidden');
+                updateTtsTotalStats();
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function imageToBase64(imgOrBlob, maxWidth = 800, quality = 0.65) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+                };
+                if (typeof imgOrBlob === 'string') img.src = imgOrBlob;
+                else img.src = URL.createObjectURL(imgOrBlob);
+            });
+        }
+
+
+        // =========================================================================
+        // --- EDGE-TTS SYNTHESIS VIA CLOUDFLARE WORKER
+        // =========================================================================
+
+        async function synthesizeVoiceoverAudio(text) {
+            const cleanText = text.trim();
+            if (!cleanText) throw new Error("Text is empty.");
+
+            let workerUrl = workerUrlInput.value.trim().replace(/\/+$/, '');
+            if (!workerUrl) {
+                // If user hasn't set their worker yet, use a shared community relay
+                workerUrl = "https://tts.aishare.us.kg";
+            }
+
+            const voice = document.getElementById('tts-voice-select').value;
+            const rate = document.getElementById('tts-rate-select').value;
+            const pitch = document.getElementById('tts-pitch-select').value;
+
+            let fetchUrl = `${workerUrl}?text=${encodeURIComponent(cleanText)}&voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&pitch=${encodeURIComponent(pitch)}`;
+
+            if (workerUrl.includes('/v1/audio/speech')) {
+                const res = await fetch(workerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer aisharenet' },
+                    body: JSON.stringify({ model: 'tts-1', input: cleanText, voice: voice })
+                });
+                if (!res.ok) throw new Error(`Worker responded with HTTP ${res.status}`);
+                return await res.blob();
+            }
+
+            const res = await fetch(fetchUrl);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Worker returned HTTP ${res.status}. Check your Cloudflare Worker URL.`);
+            }
+
+            const blob = await res.blob();
+            if (!blob || blob.size < 100) {
+                throw new Error("Received empty audio stream.");
+            }
+            return blob;
+        }
+
+        function getAudioBlobDuration(blob) {
+            return new Promise((resolve) => {
+                if (!blob || blob.size === 0) return resolve(3.0);
+                const audio = new Audio();
+                const url = URL.createObjectURL(blob);
+                audio.src = url;
+                const timer = setTimeout(() => resolve(3.2), 2000);
+                audio.onloadedmetadata = () => {
+                    clearTimeout(timer);
+                    resolve(audio.duration || 3.0);
+                };
+                audio.onerror = () => {
+                    clearTimeout(timer);
+                    resolve(3.0);
+                };
+            });
+        }
+
+        async function testVoiceSample() {
+            const btn = event.currentTarget;
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader"></i> Synthesizing sample...';
+            lucide.createIcons();
+
+            try {
+                const sampleText = "Welcome to Workshop. This is a voice preview for your manga recap video.";
+                const blob = await synthesizeVoiceoverAudio(sampleText);
+                const audio = new Audio(URL.createObjectURL(blob));
+                await audio.play();
+            } catch (err) {
+                alert(`Voice Sample Error:\n${err.message}\n\nMake sure your Cloudflare Worker is deployed and URL is pasted above.`);
+            } finally {
+                btn.innerHTML = oldHtml;
+                lucide.createIcons();
+            }
+        }
+
+
+        // =========================================================================
+        // --- TTS TAB: SCRIPT QUEUE & GENERATION
+        // =========================================================================
+
+        function updateTtsTotalStats() {
+            document.getElementById('tts-count-badge').innerText = `${ttsPanels.length} Audio Panels`;
+            let readyCount = ttsPanels.filter(p => p.status === 'ready').length;
+            let totalDuration = ttsPanels.reduce((acc, p) => acc + (parseFloat(p.duration) || 0), 0);
+            
+            document.getElementById('tts-overall-badge').innerText = `[${readyCount} / ${ttsPanels.length} READY]`;
+            document.getElementById('tts-total-duration').innerText = `Total Audio: ${totalDuration.toFixed(1)}s (~${(totalDuration/60).toFixed(1)}m)`;
+        }
+
+        function syncTtsFromScriptTab() {
+            if (aiPanels.length === 0) {
+                return alert("No script found in Script tab! Generate or sync script lines first.");
+            }
+
+            ttsPanels = aiPanels.map((p, idx) => ({
+                id: p.id,
+                name: p.name,
+                number: idx + 1,
+                text: p.text || '',
+                dataUrl: p.dataUrl,
+                audioBlob: null,
+                audioUrl: null,
+                duration: 0,
+                status: 'waiting'
+            }));
+
+            renderTtsPreviewFeed();
+            updateTtsTotalStats();
+            alert(`⚡ Synced ${ttsPanels.length} panels and narration lines into TTS queue!`);
+        }
+
+        document.getElementById('tts-script-file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const text = await file.text();
+            try {
+                const json = JSON.parse(text);
+                const list = Array.isArray(json) ? json : json.script || json.panels;
+                if (!Array.isArray(list)) throw new Error("JSON must be an array of panels.");
+
+                ttsPanels = list.map((item, idx) => ({
+                    id: item.id || `panel_${idx + 1}`,
+                    name: item.name || `panel_${String(idx + 1).padStart(3, '0')}.jpg`,
+                    number: idx + 1,
+                    text: item.text || item.narration || '',
+                    dataUrl: item.image || item.thumb || '',
+                    audioBlob: null,
+                    audioUrl: null,
+                    duration: 0,
+                    status: 'waiting'
+                }));
+                alert(`Loaded ${ttsPanels.length} panels from JSON!`);
+            } catch (err) {
+                const lines = text.split('\n');
+                let parsed = [];
+                let currentItem = null;
+
+                lines.forEach(line => {
+                    const match = line.match(/^\[?(panel_\d+)\]?:?\s*(.*)$/i);
+                    if (match) {
+                        if (currentItem) parsed.push(currentItem);
+                        currentItem = {
+                            id: match[1].toLowerCase(),
+                            name: `${match[1].toLowerCase()}.jpg`,
+                            number: parsed.length + 1,
+                            text: match[2].trim(),
+                            dataUrl: '',
+                            audioBlob: null,
+                            audioUrl: null,
+                            duration: 0,
+                            status: 'waiting'
+                        };
+                    } else if (currentItem && line.trim()) {
+                        currentItem.text += ' ' + line.trim();
+                    }
+                });
+                if (currentItem) parsed.push(currentItem);
+
+                if (parsed.length > 0) {
+                    ttsPanels = parsed;
+                    alert(`Parsed ${ttsPanels.length} panels from text file!`);
+                } else {
+                    alert("Could not parse script file. Use JSON or [panel_001]: Text format.");
+                }
+            }
+
+            renderTtsPreviewFeed();
+            updateTtsTotalStats();
+            e.target.value = "";
+        });
+
+        function exportTtsScriptJson() {
+            if (ttsPanels.length === 0) return alert("No script lines to export!");
+            const exportData = ttsPanels.map(p => ({
+                id: p.name.replace('.jpg', ''),
+                text: p.text,
+                duration: p.duration
+            }));
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+            downloadBlob(blob, `Manga_Script_TTS_${Date.now()}.json`);
+        }
+
+        function renderTtsPreviewFeed() {
+            const feed = document.getElementById('tts-preview-feed');
+            feed.innerHTML = '';
+
+            if (ttsPanels.length === 0) {
+                feed.innerHTML = '<div style="text-align: center; color: #666; font-size: 12px; padding: 20px;">No panels loaded. Sync from the Script Tab or import a script file.</div>';
+                return;
+            }
+
+            ttsPanels.forEach((panel) => {
+                const card = document.createElement('div');
+                card.className = 'feed-card';
+                card.id = `tts-card-${panel.id}`;
+
+                const audioName = `${panel.name.replace('.jpg', '')}.mp3`;
+                let badgeClass = 'status-waiting';
+                if (panel.status === 'generating') badgeClass = 'status-generating';
+                if (panel.status === 'ready') badgeClass = 'status-ready';
+                if (panel.status === 'error') badgeClass = 'danger';
+
+                card.innerHTML = `
+                    <div class="feed-header">
+                        <span style="font-size: 13px; font-weight: bold;"><i data-lucide="music" style="width: 14px; display: inline;"></i> ${audioName}</span>
+                        <span id="tts-badge-${panel.id}" class="status-badge ${badgeClass}">[${panel.status.toUpperCase()}]</span>
+                    </div>
+                    <div class="feed-split">
+                        ${panel.dataUrl ? `<img src="${panel.dataUrl}" class="feed-thumb" alt="${panel.name}">` : ''}
+                        <div class="feed-content">
+                            <textarea id="tts-text-${panel.id}" placeholder="Narration text..." oninput="updateTtsText('${panel.id}', this.value)">${panel.text}</textarea>
+                            
+                            <div class="audio-player-wrap" id="audio-wrap-${panel.id}">
+                                ${panel.audioUrl ? `<audio controls src="${panel.audioUrl}"></audio>` : '<span style="font-size: 11px; color: #666; font-style: italic;">Audio not generated yet</span>'}
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #777;">
+                                <span id="tts-duration-${panel.id}">⏱️ Duration: ${panel.duration ? panel.duration + 's' : '0.0s'}</span>
+                                <button onclick="generateSingleTts('${panel.id}')" style="padding: 4px 8px; font-size: 11px;">
+                                    <i data-lucide="mic" style="width: 12px; height: 12px;"></i> Re-voice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function updateTtsText(panelId, newText) {
+            const p = ttsPanels.find(x => x.id === panelId);
+            if (p) p.text = newText;
+        }
+
+        async function generateSingleTts(panelId) {
+            const panel = ttsPanels.find(x => x.id === panelId);
+            if (!panel || !panel.text.trim()) return alert("Panel narration text is empty!");
+
+            panel.status = 'generating';
+            const badge = document.getElementById(`tts-badge-${panel.id}`);
+            if (badge) {
+                badge.className = 'status-badge status-generating';
+                badge.innerText = '[RECORDING]';
+            }
+
+            try {
+                const blob = await synthesizeVoiceoverAudio(panel.text.trim());
+                const duration = await getAudioBlobDuration(blob);
+
+                panel.audioBlob = blob;
+                panel.audioUrl = URL.createObjectURL(blob);
+                panel.duration = duration.toFixed(2);
+                panel.status = 'ready';
+
+                if (badge) {
+                    badge.className = 'status-badge status-ready';
+                    badge.innerText = '[READY]';
+                    document.getElementById(`audio-wrap-${panel.id}`).innerHTML = `<audio controls src="${panel.audioUrl}"></audio>`;
+                    document.getElementById(`tts-duration-${panel.id}`).innerText = `⏱️ Duration: ${panel.duration}s`;
+                }
+                updateTtsTotalStats();
+            } catch (err) {
+                panel.status = 'error';
+                if (badge) {
+                    badge.className = 'status-badge danger';
+                    badge.innerText = '[ERROR]';
+                }
+                alert(`Synthesis Error for ${panel.name}:\n${err.message}`);
+            }
+        }
+
+        async function generateAllTts() {
+            if (isTtsRunning) return;
+            if (ttsPanels.length === 0) return alert("No panels in queue! Sync from Script tab first.");
+
+            isTtsRunning = true;
+            const btnRun = document.getElementById('btn-run-all-tts');
+            const progressBar = document.getElementById('tts-progress-bar');
+            const progressText = document.getElementById('tts-progress-text');
+            btnRun.disabled = true;
+            btnRun.innerHTML = '<i data-lucide="loader"></i> Synthesizing...';
+            lucide.createIcons();
+
+            let completed = 0;
+            const total = ttsPanels.length;
+
+            for (let i = 0; i < total; i++) {
+                const panel = ttsPanels[i];
+                if (!panel.text.trim()) {
+                    completed++;
+                    continue;
+                }
+
+                progressText.innerText = `Recording ${panel.name} (${i + 1}/${total})...`;
+                panel.status = 'generating';
+                const badge = document.getElementById(`tts-badge-${panel.id}`);
+                if (badge) {
+                    badge.className = 'status-badge status-generating';
+                    badge.innerText = '[RECORDING]';
+                }
+
+                try {
+                    const blob = await synthesizeVoiceoverAudio(panel.text.trim());
+                    const duration = await getAudioBlobDuration(blob);
+
+                    panel.audioBlob = blob;
+                    panel.audioUrl = URL.createObjectURL(blob);
+                    panel.duration = duration.toFixed(2);
+                    panel.status = 'ready';
+
+                    if (badge) {
+                        badge.className = 'status-badge status-ready';
+                        badge.innerText = '[READY]';
+                        document.getElementById(`audio-wrap-${panel.id}`).innerHTML = `<audio controls src="${panel.audioUrl}"></audio>`;
+                        document.getElementById(`tts-duration-${panel.id}`).innerText = `⏱️ Duration: ${panel.duration}s`;
+                    }
+                } catch (e) {
+                    console.error("TTS generation error on", panel.name, e);
+                    panel.status = 'error';
+                    if (badge) {
+                        badge.className = 'status-badge danger';
+                        badge.innerText = '[ERROR]';
+                    }
+                }
+
+                completed++;
+                const pct = Math.round((completed / total) * 100);
+                progressBar.style.width = `${pct}%`;
+                updateTtsTotalStats();
+
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            progressText.innerText = `Synthesized ${completed} of ${total} audio clips!`;
+            btnRun.disabled = false;
+            btnRun.innerHTML = '<i data-lucide="play"></i> Generate All Panel TTS';
+            isTtsRunning = false;
+            lucide.createIcons();
+            alert("🎉 Audio synthesis complete! You can play each preview or tap 'Download Audio (Zip)'.");
+        }
+
+        async function downloadAllTtsZip() {
+            const readyPanels = ttsPanels.filter(p => p.audioBlob);
+            if (readyPanels.length === 0) return alert("No synthesized audio ready to download! Generate TTS first.");
+
+            const zip = new JSZip();
+            readyPanels.forEach(p => {
+                const filename = `${p.name.replace('.jpg', '')}.mp3`;
+                zip.file(filename, p.audioBlob);
+            });
+
+            const timingMetadata = readyPanels.map(p => ({
+                id: p.name.replace('.jpg', ''),
+                image: p.name,
+                audio: `${p.name.replace('.jpg', '')}.mp3`,
+                duration: parseFloat(p.duration) || 3.0,
+                text: p.text
+            }));
+            zip.file("video_timeline.json", JSON.stringify(timingMetadata, null, 2));
+
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            downloadBlob(zipBlob, "Manga_Recap_Audio_Clips.zip");
+        }
+
+
+        // =========================================================================
+        // --- SCRIPT TAB: GEMINI PIPELINE & RESTORED MANUAL INPUTS
+        // =========================================================================
+
+        const rawCbzAiInput = document.getElementById('raw-cbz-ai-input');
+        if (rawCbzAiInput) {
+            rawCbzAiInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const zip = new JSZip();
+                const contents = await zip.loadAsync(file);
+                let fileNames = Object.keys(contents.files).filter(name => name.match(/\.(jpg|jpeg|png|webp)$/i) && !name.includes('__MACOSX'));
+                fileNames.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+
+                aiRawPages = [];
+                for (let name of fileNames) {
+                    const blob = await contents.files[name].async("blob");
+                    aiRawPages.push({ name: name, url: URL.createObjectURL(blob) });
+                }
+                updateAiSyncBadges();
+                alert(`Loaded ${aiRawPages.length} Raw Pages from CBZ!`);
+                e.target.value = "";
+            });
+        }
+
+        const panelsZipAiInput = document.getElementById('panels-zip-ai-input');
+        if (panelsZipAiInput) {
+            panelsZipAiInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const zip = new JSZip();
+                const contents = await zip.loadAsync(file);
+                let fileNames = Object.keys(contents.files).filter(name => name.match(/\.(jpg|jpeg|png|webp)$/i) && !name.includes('__MACOSX'));
+                fileNames.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+
+                aiPanels = [];
+                let idx = 1;
+                for (let name of fileNames) {
+                    const blob = await contents.files[name].async("blob");
+                    const dataUrl = await new Promise(res => {
+                        const r = new FileReader();
+                        r.onload = () => res(r.result);
+                        r.readAsDataURL(blob);
+                    });
+
+                    aiPanels.push({
+                        id: `panel_${idx}`,
+                        name: `panel_${String(idx).padStart(3, '0')}.jpg`,
+                        number: idx,
+                        dataUrl: dataUrl,
+                        text: '',
+                        status: 'waiting',
+                        words: 0,
+                        duration: 0
+                    });
+                    idx++;
+                }
+                updateAiSyncBadges();
+                renderScriptPreviewFeed();
+                alert(`Loaded ${aiPanels.length} Cropped Panels from Zip!`);
+                e.target.value = "";
+            });
+        }
+
+        async function resolveWorkingGeminiModel(apiKey) {
+            const selected = document.getElementById('gemini-model-select').value;
+            if (selected !== 'auto') return selected;
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const models = (data.models || []).filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
+                    const preferred = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'];
+                    for (let pref of preferred) {
+                        const found = models.find(m => m.name === `models/${pref}` || m.name.endsWith(`/${pref}`));
+                        if (found) return found.name.replace('models/', '');
+                    }
+                    if (models.length > 0) return models[0].name.replace('models/', '');
+                }
+            } catch (e){}
+            return 'gemini-2.5-flash';
+        }
+
+        async function testApiKeyAndFetchModels() {
+            const key = apiKeyInput.value.trim();
+            if (!key) return alert("Please enter your Gemini API key first.");
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader"></i> Checking Active Models...';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error?.message || `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                const available = (data.models || []).filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')).map(m => m.name.replace('models/', ''));
+                const select = document.getElementById('gemini-model-select');
+                select.innerHTML = '<option value="auto">⚡ Auto-Detect Best Available (Recommended)</option>';
+                available.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; opt.innerText = m;
+                    select.appendChild(opt);
+                });
+                document.getElementById('ai-model-active-badge').innerText = `Active: ${available[0]}`;
+                alert(`✅ Key Verified! Found ${available.length} models:\n• ${available.slice(0, 5).join('\n• ')}`);
+            } catch (err) {
+                alert(`❌ Connection Failed:\n${err.message}`);
+            } finally {
+                btn.innerHTML = originalHtml; lucide.createIcons();
+            }
+        }
+
+        async function fetchGeminiWithFallback(initialModel, apiKey, payload) {
+            let model = initialModel;
+            let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (res.status === 404) {
+                const fallbacks = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest'].filter(m => m !== model);
+                for (let alt of fallbacks) {
+                    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${alt}:generateContent?key=${apiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        resolvedModelName = alt;
+                        document.getElementById('ai-model-active-badge').innerText = `Active: ${alt}`;
+                        return res;
+                    }
+                }
+            }
+            return res;
+        }
+
+        async function runAiRecapPipeline() {
+            if (isAiRunning) return;
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) return alert("Please enter your Gemini API key.");
+            if (aiPanels.length === 0) return alert("No panels loaded! Sync from Processing tab or upload a Panels Zip first.");
+
+            isAiRunning = true;
+            const btnRun = document.getElementById('btn-run-ai');
+            const overallBadge = document.getElementById('overall-status-badge');
+            const progressBar = document.getElementById('ai-progress-bar');
+            const progressText = document.getElementById('ai-progress-text');
+
+            btnRun.disabled = true;
+            btnRun.innerHTML = '<i data-lucide="loader"></i> Initializing...';
+            overallBadge.className = 'status-badge status-analyzing';
+            overallBadge.innerText = '[DETECTING MODEL]';
+            progressText.innerText = 'Connecting to Google AI Studio...';
+            lucide.createIcons();
+
+            try {
+                resolvedModelName = await resolveWorkingGeminiModel(apiKey);
+                document.getElementById('ai-model-active-badge').innerText = `Active: ${resolvedModelName}`;
+
+                overallBadge.innerText = '[PHASE 1: DIRECTOR PASS]';
+                let characterContext = savedCharacters.map(c => `- ${c.name} (Role: ${c.role})`).join('\n') || "None registered.";
+                let storyOutline = "Follow chronological order of the panels strictly.";
+
+                if (aiRawPages.length > 0) {
+                    let sampleStep = Math.max(1, Math.floor(aiRawPages.length / 15));
+                    let sampledPages = [];
+                    for (let i = 0; i < aiRawPages.length; i += sampleStep) sampledPages.push(aiRawPages[i]);
+
+                    progressText.innerText = `Reading text & dialogue across ${sampledPages.length} chapter pages...`;
+                    let rawImageParts = await Promise.all(
+                        sampledPages.map(p => imageToBase64(p.url, 750, 0.65).then(data => ({
+                            inline_data: { mime_type: "image/jpeg", data: data }
+                        })))
+                    );
+
+                    const phase1Prompt = `You are a professional manga recap script supervisor.
+Analyze these raw chapter pages in chronological order.
+CRITICAL ACCURACY RULES:
+1. READ the actual dialogue in the speech bubbles, phone text, and narrative boxes. Do NOT invent fantasy or unrelated lore!
+2. Understand what is actually happening in the story based on the text.
+3. Write a concise Chronological Scene Timeline (max 250 words) that describes the REAL events of this chapter based on what characters are saying.`;
+
+                    const phase1Payload = {
+                        contents: [{ parts: [{ text: phase1Prompt }, ...rawImageParts] }],
+                        generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+                    };
+
+                    const res1 = await fetchGeminiWithFallback(resolvedModelName, apiKey, phase1Payload);
+                    if (res1.ok) {
+                        const json1 = await res1.json();
+                        storyOutline = json1.candidates?.[0]?.content?.parts?.[0]?.text || storyOutline;
+                    }
+                }
+
+                overallBadge.className = 'status-badge status-writing';
+                overallBadge.innerText = '[PHASE 2: SCRIPTING PANELS]';
+
+                const BATCH_SIZE = 5;
+                const totalPanels = aiPanels.length;
+
+                for (let i = 0; i < totalPanels; i += BATCH_SIZE) {
+                    const batch = aiPanels.slice(i, i + BATCH_SIZE);
+                    batch.forEach(p => setPanelStatus(p.id, 'analyzing'));
+                    progressText.innerText = `Scripting ${batch[0].name} to ${batch[batch.length - 1].name}...`;
+
+                    const batchImageParts = await Promise.all(
+                        batch.map(p => imageToBase64(p.dataUrl, 500, 0.8).then(data => ({
+                            inline_data: { mime_type: "image/jpeg", data: data }
+                        })))
+                    );
+
+                    batch.forEach(p => setPanelStatus(p.id, 'writing'));
+                    const batchIdList = batch.map(p => p.name.replace('.jpg', '')).join(', ');
+
+                    const phase2Prompt = `You are an elite YouTube manga recap voiceover narrator.
+You are given ${batch.length} cropped panels in sequential order: [${batchIdList}].
+
+REAL STORY TIMELINE:
+${storyOutline}
+
+REGISTERED CAST:
+${characterContext}
+
+CRITICAL RULES FOR RECAP SCRIPTING:
+1. GROUNDING & OCR: Look closely at each panel. Read any text bubbles, phone screens, or sound effects. Narrate what is ACTUALLY taking place based on the true context. Do NOT hallucinate fantasy lore.
+2. CHARACTER NAMING (SPECIFIC NAMES FIRST, NATURAL PRONOUNS):
+   - ALWAYS use specific character names (e.g. Kusunoki, Arthur) whenever referring to characters.
+   - NEVER use generic labels like "the young man", "the boy", "a worker", "our hero", or "the protagonist". Call them by their actual names!
+   - Strike a balanced recap flow: Use the character's real name as the primary subject, but naturally alternate with pronouns ('he', 'him', 'his', 'she', 'her') to keep transitions fluid and conversational.
+3. CONCISE RECAP PACING: Keep each panel narration punchy, between 8 and 14 words (approx. 2.5 to 4 seconds).
+4. COMPLETE ALL PANELS: You MUST provide an entry for every panel in [${batchIdList}]. Do not skip any!
+
+RETURN YOUR ANSWER STRICTLY AS A VALID JSON ARRAY OF OBJECTS (NO MARKDOWN CODEBLOCKS, JUST RAW JSON):
+[
+  ${batch.map(p => `{"id": "${p.name.replace('.jpg', '')}", "narration": "Voiceover line here"}`).join(',\n  ')}
+]`;
+
+                    const phase2Payload = {
+                        contents: [{ parts: [{ text: phase2Prompt }, ...batchImageParts] }],
+                        generationConfig: { temperature: 0.4, maxOutputTokens: 1024, response_mime_type: "application/json" }
+                    };
+
+                    const res2 = await fetchGeminiWithFallback(resolvedModelName, apiKey, phase2Payload);
+                    if (!res2.ok) {
+                        const errData = await res2.json();
+                        throw new Error(errData.error?.message || "Batch scripting call failed.");
+                    }
+
+                    const json2 = await res2.json();
+                    let rawContent = json2.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+                    let parsedArray = [];
+                    try { parsedArray = JSON.parse(rawContent); } 
+                    catch(e) {
+                        try { parsedArray = JSON.parse(rawContent.replace(/```json/gi, '').replace(/```/gi, '').trim()); } catch(err){}
+                    }
+
+                    batch.forEach((p, idx) => {
+                        const cleanName = p.name.replace('.jpg', '');
+                        let item = Array.isArray(parsedArray) ? parsedArray.find(x => x.id && x.id.toLowerCase() === cleanName.toLowerCase()) : null;
+                        if (!item && Array.isArray(parsedArray) && parsedArray[idx]) item = parsedArray[idx];
+
+                        if (item && (item.narration || item.text)) {
+                            const line = (item.narration || item.text).trim();
+                            updatePanelText(p.id, line);
+                            document.getElementById(`text-${p.id}`).value = line;
+                            setPanelStatus(p.id, 'done');
+                        } else {
+                            setPanelStatus(p.id, 'analyzing');
+                        }
+                    });
+
+                    const completed = Math.min(totalPanels, i + BATCH_SIZE);
+                    const pct = Math.round((completed / totalPanels) * 100);
+                    progressBar.style.width = `${pct}%`;
+                    progressText.innerText = `Completed ${completed} of ${totalPanels} panels (${pct}%)`;
+
+                    if (i + BATCH_SIZE < totalPanels) await new Promise(r => setTimeout(r, 1200));
+                }
+
+                overallBadge.className = 'status-badge status-done';
+                overallBadge.innerText = '[ALL PANELS DONE]';
+                progressText.innerText = `Successfully scripted all ${totalPanels} panels!`;
+                alert("🎉 Recap script complete! Switch to the TTS tab to voice them.");
+
+            } catch (err) {
+                console.error(err);
+                overallBadge.className = 'status-badge status-waiting';
+                overallBadge.innerText = '[ERROR]';
+                progressText.innerText = err.message;
+                alert(`AI Generation Error: ${err.message}`);
+            } finally {
+                isAiRunning = false;
+                btnRun.disabled = false;
+                btnRun.innerHTML = '<i data-lucide="play"></i> Generate Recap Script';
+                lucide.createIcons();
+            }
+        }
+
+
+        // =========================================================================
+        // --- SCRIPT UI HELPERS & SYNC
+        // =========================================================================
+
+        function updateAiSyncBadges() {
+            document.getElementById('ai-raw-status').innerText = `Raw Pages: ${aiRawPages.length}`;
+            document.getElementById('ai-panels-status').innerText = `Panels: ${aiPanels.length}`;
+            document.getElementById('ai-cast-status').innerText = `Cast: ${savedCharacters.length}`;
+            document.getElementById('panel-count-badge').innerText = `${aiPanels.length} Panels`;
+        }
+
+        async function syncFromProcessingTab() {
+            if (extractedPages.length === 0) return alert("No chapter loaded in the Processing tab! Import and stitch a CBZ first.");
+
+            aiRawPages = extractedPages.map(p => ({ name: p.name, url: p.url }));
+            aiPanels = [];
+            let index = 1;
+
+            for (let page of extractedPages) {
+                if (!page.wrapper) continue;
+                const img = page.imgElement;
+                const boxes = Array.from(page.wrapper.querySelectorAll('.drawn-box'));
+                if (boxes.length === 0) continue;
+
+                boxes.sort((a, b) => {
+                    const aY = parseFloat(a.dataset.py), bY = parseFloat(b.dataset.py);
+                    const aX = parseFloat(a.dataset.px), bX = parseFloat(b.dataset.px);
+                    if (Math.abs(aY - bY) < 5) return bX - aX; 
+                    return aY - bY; 
+                });
+
+                for (let box of boxes) {
+                    const natX = (parseFloat(box.dataset.px) / 100) * img.naturalWidth;
+                    const natY = (parseFloat(box.dataset.py) / 100) * img.naturalHeight;
+                    const natW = (parseFloat(box.dataset.pw) / 100) * img.naturalWidth;
+                    const natH = (parseFloat(box.dataset.ph) / 100) * img.naturalHeight;
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.min(natW, 600); 
+                    canvas.height = (canvas.width / natW) * natH;
+                    canvas.getContext('2d').drawImage(img, natX, natY, natW, natH, 0, 0, canvas.width, canvas.height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const panelName = `panel_${String(index).padStart(3, '0')}.jpg`;
+
+                    aiPanels.push({
+                        id: `panel_${index}`,
+                        name: panelName,
+                        number: index,
+                        dataUrl: dataUrl,
+                        text: '',
+                        status: 'waiting',
+                        words: 0,
+                        duration: 0
+                    });
+                    index++;
+                }
+            }
+
+            updateAiSyncBadges();
+            renderScriptPreviewFeed();
+            alert(`⚡ Synced ${aiRawPages.length} Raw Pages and ${aiPanels.length} Panels from Processing Tab!`);
+        }
+
+        function renderScriptPreviewFeed() {
+            const feed = document.getElementById('script-preview-feed');
+            feed.innerHTML = '';
+            if (aiPanels.length === 0) {
+                feed.innerHTML = '<div style="text-align: center; color: #666; font-size: 12px; padding: 20px;">No panels loaded. Sync from Processing Tab or upload files.</div>';
+                return;
+            }
+            aiPanels.forEach((panel) => {
+                const card = document.createElement('div');
+                card.className = 'feed-card';
+                let badgeClass = panel.status === 'done' ? 'status-done' : (panel.status === 'writing' ? 'status-writing' : 'status-waiting');
+                card.innerHTML = `
+                    <div class="feed-header">
+                        <span style="font-size: 13px; font-weight: bold;">${panel.name}</span>
+                        <span id="badge-${panel.id}" class="status-badge ${badgeClass}">[${panel.status.toUpperCase()}]</span>
+                    </div>
+                    <div class="feed-split">
+                        <img src="${panel.dataUrl}" class="feed-thumb" alt="${panel.name}">
+                        <div class="feed-content">
+                            <textarea id="text-${panel.id}" placeholder="Waiting for AI generation..." oninput="updatePanelText('${panel.id}', this.value)">${panel.text}</textarea>
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #777;">
+                                <span id="info-${panel.id}">Words: ${panel.words} | Est. ${panel.duration}s</span>
+                                <span style="cursor: pointer; color: var(--accent-color);" onclick="copyLine('${panel.id}')"><i data-lucide="copy" style="width: 12px; height: 12px; display: inline;"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function updatePanelText(panelId, newText) {
+            const panel = aiPanels.find(p => p.id === panelId);
+            if (!panel) return;
+            panel.text = newText;
+            const words = newText.trim() ? newText.trim().split(/\s+/).length : 0;
+            panel.words = words;
+            panel.duration = (words / 2.6).toFixed(1); 
+            document.getElementById(`info-${panelId}`).innerText = `Words: ${words} | Est. ${panel.duration}s`;
+        }
+
+        function setPanelStatus(panelId, status) {
+            const panel = aiPanels.find(p => p.id === panelId);
+            if (!panel) return;
+            panel.status = status;
+            const badge = document.getElementById(`badge-${panelId}`);
+            if (badge) {
+                badge.className = `status-badge status-${status}`;
+                badge.innerText = `[${status.toUpperCase()}]`;
+            }
+        }
+
+        function copyLine(panelId) {
+            const panel = aiPanels.find(p => p.id === panelId);
+            if (panel && panel.text) {
+                navigator.clipboard.writeText(panel.text);
+                alert(`Copied ${panel.name} line!`);
+            }
+        }
+
+        function exportScriptText() {
+            if (aiPanels.length === 0) return alert("No panels available!");
+            let fullScript = "";
+            aiPanels.forEach(p => {
+                fullScript += `[${p.name.replace('.jpg', '')}] (${p.duration}s)\n${p.text || '[No narration]'}\n\n`;
+            });
+            navigator.clipboard.writeText(fullScript);
+            alert("Copied complete script to clipboard!");
+        }
+
+
+        // =========================================================================
+        // --- PROCESSING & CANVAS WORKFLOW (UNCHANGED)
+        // =========================================================================
+        const cbzInput = document.getElementById('cbz-input');
+        const btnDownloadPages = document.getElementById('btn-download-pages');
+        const btnStitch = document.getElementById('btn-stitch');
+        const btnAutoDetect = document.getElementById('btn-auto-detect');
+        const btnExportPanels = document.getElementById('btn-export-panels');
+        const btnDrawMode = document.getElementById('btn-draw-mode');
+        const stripContainer = document.getElementById('strip-container');
+
+        cbzInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            extractedPages = []; stripContainer.innerHTML = '';
+            btnDownloadPages.classList.add('hidden'); btnStitch.classList.add('hidden');
+            btnExportPanels.classList.add('hidden'); btnDrawMode.classList.add('hidden');
+            btnAutoDetect.classList.add('hidden');
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(file);
+            let fileNames = Object.keys(contents.files).filter(name => name.match(/\.(jpg|jpeg|png|webp)$/i) && !name.includes('__MACOSX'));
+            fileNames.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+            let index = 1;
+            for (const name of fileNames) {
+                const blob = await contents.files[name].async("blob");
+                extractedPages.push({ name: `page_${String(index).padStart(2, '0')}.${name.split('.').pop()}`, blob: blob, url: URL.createObjectURL(blob), wrapper: null, imgElement: null });
+                index++;
+            }
+            alert(`Processed ${extractedPages.length} pages!`);
+            btnDownloadPages.classList.remove('hidden'); btnStitch.classList.remove('hidden');
+            cbzInput.value = "";
+        });
+
+        btnDownloadPages.addEventListener('click', async () => {
+            const outZip = new JSZip();
+            extractedPages.forEach(p => outZip.file(p.name, p.blob));
+            downloadBlob(await outZip.generateAsync({ type: "blob" }), "Manga_Pages.zip");
+        });
+
+        btnStitch.addEventListener('click', () => {
+            stripContainer.innerHTML = '';
+            btnExportPanels.classList.remove('hidden'); btnDrawMode.classList.remove('hidden');
+            btnAutoDetect.classList.remove('hidden');
+            extractedPages.forEach(page => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'page-wrapper';
+                const img = document.createElement('img');
+                img.src = page.url;
+                wrapper.appendChild(img);
+                stripContainer.appendChild(wrapper);
+                page.wrapper = wrapper; page.imgElement = img; 
+            });
+        });
+
+        function createDrawnBox(wrapper, pX, pY, pW, pH) {
+            const box = document.createElement('div');
+            box.className = 'drawn-box';
+            box.style.left = `${pX}%`; box.style.top = `${pY}%`;
+            box.style.width = `${pW}%`; box.style.height = `${pH}%`;
+            box.dataset.px = pX; box.dataset.py = pY; box.dataset.pw = pW; box.dataset.ph = pH;
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn'; delBtn.innerHTML = '<i data-lucide="x"></i>';
+            delBtn.onclick = (e) => { e.stopPropagation(); box.remove(); };
+            box.appendChild(delBtn);
+            wrapper.appendChild(box);
+            lucide.createIcons();
+        }
+
+        btnAutoDetect.addEventListener('click', async () => {
+            if (!window.isOpenCvReady) return alert("OpenCV is still loading...");
+            btnAutoDetect.innerHTML = '<i data-lucide="loader"></i> Detecting...';
+            lucide.createIcons();
+            await new Promise(r => setTimeout(r, 100)); 
+
+            for (let page of extractedPages) {
+                page.wrapper.querySelectorAll('.drawn-box').forEach(b => b.remove());
+                const img = page.imgElement;
+                if (!img.complete || img.naturalWidth === 0) continue;
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+
+                    let src = cv.imread(canvas);
+                    let gray = new cv.Mat(), thresh = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                    cv.threshold(gray, thresh, 225, 255, cv.THRESH_BINARY_INV);
+                    let kSize = Math.max(3, Math.min(7, Math.floor(canvas.width / 350)));
+                    let M = cv.Mat.ones(kSize, kSize, cv.CV_8U);
+                    cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, M);
+
+                    let contours = new cv.MatVector(), hierarchy = new cv.Mat();
+                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    const imgArea = canvas.width * canvas.height;
+                    let rawRects = [];
+                    for (let i = 0; i < contours.size(); ++i) {
+                        let rect = cv.boundingRect(contours.get(i));
+                        let area = rect.width * rect.height;
+                        if (area > (imgArea * 0.015) && rect.width > 25 && rect.height > 25) rawRects.push(rect);
+                    }
+
+                    const SPLASH_THRESHOLD = 0.82;
+                    let normalPanels = rawRects.filter(r => (r.width * r.height) <= (imgArea * SPLASH_THRESHOLD));
+                    let fullPageCandidates = rawRects.filter(r => (r.width * r.height) > (imgArea * SPLASH_THRESHOLD));
+                    let candidateRects = normalPanels.length === 0 ? (fullPageCandidates.length > 0 ? [fullPageCandidates[0]] : [{ x: 0, y: 0, width: canvas.width, height: canvas.height }]) : normalPanels;
+
+                    let filteredRects = [];
+                    for (let i = 0; i < candidateRects.length; i++) {
+                        let r1 = candidateRects[i], isRedundant = false;
+                        for (let j = 0; j < candidateRects.length; j++) {
+                            if (i === j) continue;
+                            let r2 = candidateRects[j];
+                            let x_left = Math.max(r1.x, r2.x), y_top = Math.max(r1.y, r2.y);
+                            let x_right = Math.min(r1.x + r1.width, r2.x + r2.width);
+                            let y_bottom = Math.min(r1.y + r1.height, r2.y + r2.height);
+                            if (x_right > x_left && y_bottom > y_top) {
+                                let interArea = (x_right - x_left) * (y_bottom - y_top);
+                                if ((interArea / (r1.width * r1.height)) > 0.80 && (r2.width * r2.height) > ((r1.width * r1.height) * 1.25)) { isRedundant = true; break; }
+                            }
+                        }
+                        if (!isRedundant) filteredRects.push(r1);
+                    }
+
+                    filteredRects.forEach(rect => {
+                        createDrawnBox(page.wrapper, (rect.x / canvas.width) * 100, (rect.y / canvas.height) * 100, (rect.width / canvas.width) * 100, (rect.height / canvas.height) * 100);
+                    });
+                    src.delete(); gray.delete(); thresh.delete(); M.delete(); contours.delete(); hierarchy.delete();
+                } catch (e) {}
+            }
+            btnAutoDetect.innerHTML = '<i data-lucide="scan"></i> Auto Detect';
+            lucide.createIcons();
+        });
+
+        function toggleDrawMode() {
+            isDrawMode = !isDrawMode;
+            btnDrawMode.classList.toggle('active', isDrawMode);
+            btnDrawMode.innerHTML = isDrawMode ? '<i data-lucide="crop"></i> <span>Draw Mode: ON</span>' : '<i data-lucide="crop"></i> <span>Draw Mode: OFF</span>';
+            stripContainer.classList.toggle('drawing-enabled', isDrawMode);
+            lucide.createIcons();
+        }
+
+        let isDrawing = false, startX, startY, currentBox = null, activeWrapper = null;
+        stripContainer.addEventListener('pointerdown', (e) => {
+            if (!isDrawMode || e.target.closest('.delete-btn')) return;
+            activeWrapper = e.target.closest('.page-wrapper');
+            if (!activeWrapper) return;
+            isDrawing = true; activeWrapper.setPointerCapture(e.pointerId);
+            const rect = activeWrapper.getBoundingClientRect();
+            startX = e.clientX - rect.left; startY = e.clientY - rect.top;
+            currentBox = document.createElement('div');
+            currentBox.className = 'drawn-box';
+            activeWrapper.appendChild(currentBox);
+        });
+
+        stripContainer.addEventListener('pointermove', (e) => {
+            if (!isDrawing || !currentBox || !activeWrapper) return;
+            const rect = activeWrapper.getBoundingClientRect();
+            let currentX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            let currentY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+            currentBox.style.left = `${Math.min(startX, currentX)}px`;
+            currentBox.style.top = `${Math.min(startY, currentY)}px`;
+            currentBox.style.width = `${Math.abs(currentX - startX)}px`;
+            currentBox.style.height = `${Math.abs(currentY - startY)}px`;
+        });
+
+        stripContainer.addEventListener('pointerup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false; 
+            if (activeWrapper) activeWrapper.releasePointerCapture(e.pointerId);
+            if (currentBox && activeWrapper) {
+                const rect = activeWrapper.getBoundingClientRect();
+                const w = parseFloat(currentBox.style.width || 0), h = parseFloat(currentBox.style.height || 0);
+                if (w > 20 && h > 20) {
+                    createDrawnBox(activeWrapper, (parseFloat(currentBox.style.left) / rect.width) * 100, (parseFloat(currentBox.style.top) / rect.height) * 100, (w / rect.width) * 100, (h / rect.height) * 100);
+                }
+                currentBox.remove(); currentBox = null; activeWrapper = null;
+            }
+        });
+
+        btnExportPanels.addEventListener('click', async () => {
+            btnExportPanels.innerHTML = '<i data-lucide="loader"></i> Exporting...'; lucide.createIcons();
+            const panelZip = new JSZip();
+            let index = 1;
+            for (let page of extractedPages) {
+                if (!page.wrapper) continue;
+                const img = page.imgElement;
+                const boxes = Array.from(page.wrapper.querySelectorAll('.drawn-box'));
+                if (boxes.length === 0) continue;
+                boxes.sort((a, b) => Math.abs(parseFloat(a.dataset.py) - parseFloat(b.dataset.py)) < 5 ? parseFloat(b.dataset.px) - parseFloat(a.dataset.px) : parseFloat(a.dataset.py) - parseFloat(b.dataset.py));
+                for (let box of boxes) {
+                    const natX = (parseFloat(box.dataset.px) / 100) * img.naturalWidth;
+                    const natY = (parseFloat(box.dataset.py) / 100) * img.naturalHeight;
+                    const natW = (parseFloat(box.dataset.pw) / 100) * img.naturalWidth;
+                    const natH = (parseFloat(box.dataset.ph) / 100) * img.naturalHeight;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = natW; canvas.height = natH;
+                    canvas.getContext('2d').drawImage(img, natX, natY, natW, natH, 0, 0, natW, natH);
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+                    panelZip.file(`panel_${String(index).padStart(3, '0')}.jpg`, blob);
+                    index++;
+                }
+            }
+            if (index === 1) alert("No panels found!");
+            else downloadBlob(await panelZip.generateAsync({ type: "blob" }), "Cropped_Manga_Panels.zip");
+            btnExportPanels.innerHTML = '<i data-lucide="archive"></i> Export Cropped'; lucide.createIcons();
+        });
+
+        // =========================================================================
+        // --- CHARACTER MODAL & MANUAL SNIP TOOL
+        // =========================================================================
+
+        function openCharacterModal() { document.getElementById('modal-characters').classList.remove('hidden'); }
+        function closeCharacterModal() { document.getElementById('modal-characters').classList.add('hidden'); updateAiSyncBadges(); }
+        function saveSelectedCharacter() {
+            const name = document.getElementById('char-name-input').value.trim();
+            const role = document.getElementById('char-role-select').value;
+            if (!name) return alert("Enter name.");
+            savedCharacters.push({ id: `char_${Date.now()}`, name, role, faces: [] });
+            localStorage.setItem('workshop_characters', JSON.stringify(savedCharacters));
+            document.getElementById('char-name-input').value = '';
+            alert(`Saved ${name}!`);
+            updateAiSyncBadges();
+        }
+        function exportCharactersJSON() {
+            const blob = new Blob([JSON.stringify({ characters: savedCharacters }, null, 2)], { type: "application/json" });
+            downloadBlob(blob, `Manga_Cast_${Date.now()}.json`);
+        }
+
+        const snipContainer = document.getElementById('manual-snip-container');
+        const snipImg = document.getElementById('manual-snip-img');
+        let snipBox = null, isSnapping = false, sStartX, sStartY;
+
+        function openManualSnipModal() {
+            let pagesSource = scannerPages.length > 0 ? scannerPages : extractedPages.map(p => p.url);
+            if (pagesSource.length === 0) return alert("Please import or scan a CBZ chapter first!");
+            document.getElementById('modal-manual-snip').classList.remove('hidden');
+            currentSnipPageIndex = 0;
+            updateSnipPage();
+        }
+        function closeManualSnipModal() { document.getElementById('modal-manual-snip').classList.add('hidden'); }
+        function changeSnipPage(delta) {
+            let pagesSource = scannerPages.length > 0 ? scannerPages : extractedPages.map(p => p.url);
+            currentSnipPageIndex = Math.max(0, Math.min(pagesSource.length - 1, currentSnipPageIndex + delta));
+            updateSnipPage();
+        }
+        function updateSnipPage() {
+            let pagesSource = scannerPages.length > 0 ? scannerPages : extractedPages.map(p => p.url);
+            snipImg.src = pagesSource[currentSnipPageIndex];
+            document.getElementById('snip-page-indicator').innerText = `Page ${currentSnipPageIndex + 1} of ${pagesSource.length}`;
+            if (snipBox) { snipBox.remove(); snipBox = null; }
+        }
+
+        snipContainer.addEventListener('pointerdown', (e) => {
+            isSnapping = true; snipContainer.setPointerCapture(e.pointerId);
+            const rect = snipContainer.getBoundingClientRect();
+            sStartX = e.clientX - rect.left; sStartY = e.clientY - rect.top;
+            if (snipBox) snipBox.remove();
+            snipBox = document.createElement('div');
+            snipBox.className = 'snip-box';
+            snipContainer.appendChild(snipBox);
+        });
+
+        snipContainer.addEventListener('pointermove', (e) => {
+            if (!isSnapping || !snipBox) return;
+            const rect = snipContainer.getBoundingClientRect();
+            let currentX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            let currentY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+            snipBox.style.left = `${Math.min(sStartX, currentX)}px`;
+            snipBox.style.top = `${Math.min(sStartY, currentY)}px`;
+            snipBox.style.width = `${Math.abs(currentX - sStartX)}px`;
+            snipBox.style.height = `${Math.abs(currentY - sStartY)}px`;
+        });
+
+        snipContainer.addEventListener('pointerup', async (e) => {
+            if (!isSnapping) return;
+            isSnapping = false; snipContainer.releasePointerCapture(e.pointerId);
+            if (snipBox) {
+                const w = parseFloat(snipBox.style.width || 0), h = parseFloat(snipBox.style.height || 0);
+                if (w > 25 && h > 25) {
+                    const rect = snipContainer.getBoundingClientRect();
+                    const scaleX = snipImg.naturalWidth / rect.width, scaleY = snipImg.naturalHeight / rect.height;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w * scaleX; canvas.height = h * scaleY;
+                    canvas.getContext('2d').drawImage(snipImg, parseFloat(snipBox.style.left) * scaleX, parseFloat(snipBox.style.top) * scaleY, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+                    alert("Face snipped successfully!");
+                    closeManualSnipModal();
+                }
+                snipBox.remove(); snipBox = null;
+            }
+        });
+    </script>
+</body>
+</html>
