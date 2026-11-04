@@ -261,8 +261,9 @@
             text-transform: uppercase;
         }
         .status-waiting { background: rgba(255, 255, 255, 0.1); color: #888; }
-        .status-recording { background: rgba(255, 165, 2, 0.2); color: var(--warning-color); }
-        .status-ready { background: rgba(46, 213, 115, 0.2); color: var(--success-color); }
+        .status-analyzing, .status-generating, .status-recording { background: rgba(255, 165, 2, 0.2); color: var(--warning-color); }
+        .status-writing { background: rgba(187, 134, 252, 0.2); color: var(--accent-color); }
+        .status-done, .status-ready { background: rgba(46, 213, 115, 0.2); color: var(--success-color); }
 
         .feed-list {
             display: flex;
@@ -503,35 +504,71 @@
             </div>
         </div>
 
-        <!-- TAB 3: TTS / AUDIO GENERATOR VIEW (100% UNBLOCKABLE NEURAL WORKER) -->
+        <!-- TAB 3: TTS / AUDIO GENERATOR VIEW -->
         <div id="view-tts" class="view-section hidden">
             <div class="dashboard-container">
                 
                 <div class="card">
-                    <h3><i data-lucide="mic"></i> Neural Voiceover Engine</h3>
-                    <p>High-speed voiceover powered by Amazon Polly Neural via your Cloudflare Worker. Zero IP blocks, 100% uptime.</p>
+                    <h3><i data-lucide="mic"></i> Voiceover Synthesis Engine</h3>
+                    <p>Select a free, high-speed neural voice engine. Works directly inside your mobile browser.</p>
                     
                     <div style="display: flex; flex-direction: column; gap: 10px;">
+                        
+                        <!-- ENGINE SELECTOR -->
                         <div>
-                            <label style="font-size: 11px; color: #888;">Cloudflare Worker URL:</label>
-                            <input type="text" id="edge-worker-url" placeholder="https://manga.vaibhavishacker.workers.dev" value="https://manga.vaibhavishacker.workers.dev">
-                        </div>
-
-                        <div>
-                            <label style="font-size: 11px; color: #888;">Narrator Voice Actor:</label>
-                            <select id="tts-voice-select">
-                                <option value="Brian">🎙️ Brian (British Male - #1 Most Popular Manga Recap Voice)</option>
-                                <option value="Matthew">🎙️ Matthew (US Male - Deep Cinematic Documentary)</option>
-                                <option value="Russell">🎙️ Russell (Australian Male - Bold & Dynamic)</option>
-                                <option value="Joey">🎙️ Joey (US Male - Youthful Shonen Narrator)</option>
-                                <option value="Amy">🎙️ Amy (British Female - Expressive Storyteller)</option>
-                                <option value="Emma">🎙️ Emma (British Female - Warm & Clear)</option>
-                                <option value="Joanna">🎙️ Joanna (US Female - Natural Narrator)</option>
-                                <option value="Kendra">🎙️ Kendra (US Female - Crisp & Professional)</option>
+                            <label style="font-size: 11px; color: #888;">Speech Engine:</label>
+                            <select id="tts-engine-select" onchange="updateTtsEngineUI()">
+                                <option value="tiktok">📱 TikTok Viral Voice Engine (Via CF Worker - 100% Free)</option>
+                                <option value="huggingface">🤗 Hugging Face Open-Source (Needs Free HF Token)</option>
+                                <option value="elevenlabs">🎙️ ElevenLabs Premium (Needs API Key)</option>
                             </select>
                         </div>
 
-                        <button onclick="testVoiceSample()" style="width: 100%; justify-content: center;">
+                        <!-- TIKTOK TTS GROUP -->
+                        <div id="tts-group-tiktok">
+                            <div style="margin-bottom: 8px;">
+                                <label style="font-size: 11px; color: #888;">Cloudflare Worker URL:</label>
+                                <input type="text" id="edge-worker-url" placeholder="https://recap.vaibhavishacker.workers.dev" value="https://recap.vaibhavishacker.workers.dev">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #888;">Narrator Voice Actor:</label>
+                                <select id="tts-voice-select-tiktok">
+                                    <option value="en_male_narration">🎙️ English Narrator (Deep Male - Recap #1)</option>
+                                    <option value="en_us_006">🎙️ English Male 1 (Energetic Storyteller)</option>
+                                    <option value="en_us_007">🎙️ English Male 2 (Smooth & Calm)</option>
+                                    <option value="en_us_009">🎙️ English Male 3 (Deep & Gritty)</option>
+                                    <option value="en_us_001">🎙️ English Female 1 (Natural)</option>
+                                    <option value="en_uk_001">🎙️ UK Male 1 (British Documentary)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- HUGGING FACE GROUP -->
+                        <div id="tts-group-hf" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <label style="font-size: 11px; color: #888;">Hugging Face API Token:</label>
+                                <input type="password" id="hf-api-key" placeholder="hf_xxxxxxxxxxxx">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #888;">Model ID (e.g., inclusionAI/Ming-3.0-tts-tiny):</label>
+                                <input type="text" id="hf-model-id" placeholder="facebook/mms-tts-eng" value="facebook/mms-tts-eng">
+                                <span style="font-size: 10px; color: #666; display: block; margin-top: 3px;">Note: New models like Ming-3.0 may require pro tier space to wake up.</span>
+                            </div>
+                        </div>
+
+                        <!-- ELEVENLABS GROUP -->
+                        <div id="tts-group-eleven" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <label style="font-size: 11px; color: #888;">ElevenLabs API Key:</label>
+                                <input type="password" id="eleven-api-key" placeholder="Paste ElevenLabs Key">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #888;">Voice ID:</label>
+                                <input type="text" id="eleven-voice-id" placeholder="Voice ID (Default Adam: pNInz6obpgDQGcFmaJgB)" value="pNInz6obpgDQGcFmaJgB">
+                            </div>
+                        </div>
+
+                        <button onclick="testVoiceSample()" style="width: 100%; justify-content: center; margin-top: 4px;">
                             <i data-lucide="play-circle"></i> Listen to Voice Sample
                         </button>
                     </div>
@@ -701,21 +738,26 @@
         let scannerPages = [];
         let currentSnipPageIndex = 0;
 
-        // API Key Init
+        // Init Keys & Settings
         const apiKeyInput = document.getElementById('gemini-api-key');
         const storedKey = localStorage.getItem('workshop_gemini_key');
         if (storedKey) apiKeyInput.value = storedKey;
-        apiKeyInput.addEventListener('change', () => {
-            localStorage.setItem('workshop_gemini_key', apiKeyInput.value.trim());
-        });
+        apiKeyInput.addEventListener('change', () => { localStorage.setItem('workshop_gemini_key', apiKeyInput.value.trim()); });
 
-        // Worker URL Init
         const workerUrlInput = document.getElementById('edge-worker-url');
         const storedWorker = localStorage.getItem('workshop_edge_worker_url');
         if (storedWorker) workerUrlInput.value = storedWorker;
-        workerUrlInput.addEventListener('change', () => {
-            localStorage.setItem('workshop_edge_worker_url', workerUrlInput.value.trim());
-        });
+        workerUrlInput.addEventListener('change', () => { localStorage.setItem('workshop_edge_worker_url', workerUrlInput.value.trim()); });
+
+        const hfKeyInput = document.getElementById('hf-api-key');
+        const storedHfKey = localStorage.getItem('workshop_hf_key');
+        if (storedHfKey) hfKeyInput.value = storedHfKey;
+        hfKeyInput.addEventListener('change', () => { localStorage.setItem('workshop_hf_key', hfKeyInput.value.trim()); });
+
+        const elKeyInput = document.getElementById('eleven-api-key');
+        const storedElKey = localStorage.getItem('workshop_eleven_key');
+        if (storedElKey) elKeyInput.value = storedElKey;
+        elKeyInput.addEventListener('change', () => { localStorage.setItem('workshop_eleven_key', elKeyInput.value.trim()); });
 
         function toggleKeyVisibility() {
             apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
@@ -759,10 +801,7 @@
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    if (w > maxWidth) {
-                        h = Math.round((h * maxWidth) / w);
-                        w = maxWidth;
-                    }
+                    if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
                     canvas.width = w; canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                     resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
@@ -774,32 +813,82 @@
 
 
         // =========================================================================
-        // --- 100% UNBLOCKABLE HIGH-SPEED VOICE SYNTHESIS VIA CLOUDFLARE WORKER
+        // --- MULTI-ENGINE VOICE SYNTHESIS
         // =========================================================================
+
+        function updateTtsEngineUI() {
+            const engine = document.getElementById('tts-engine-select').value;
+            document.getElementById('tts-group-tiktok').classList.add('hidden');
+            document.getElementById('tts-group-hf').classList.add('hidden');
+            document.getElementById('tts-group-eleven').classList.add('hidden');
+
+            if (engine === 'tiktok') document.getElementById('tts-group-tiktok').classList.remove('hidden');
+            else if (engine === 'huggingface') document.getElementById('tts-group-hf').classList.remove('hidden');
+            else if (engine === 'elevenlabs') document.getElementById('tts-group-eleven').classList.remove('hidden');
+        }
 
         async function synthesizeVoiceoverAudio(text) {
             const cleanText = text.trim();
             if (!cleanText) throw new Error("Text is empty.");
 
-            let workerUrl = workerUrlInput.value.trim().replace(/\/+$/, '');
-            if (!workerUrl) {
-                workerUrl = "https://manga.vaibhavishacker.workers.dev";
+            const engine = document.getElementById('tts-engine-select').value;
+
+            if (engine === 'tiktok') {
+                const workerUrl = workerUrlInput.value.trim().replace(/\/+$/, '');
+                if (!workerUrl) throw new Error("Please deploy and paste your TikTok Cloudflare Worker URL.");
+                
+                const voice = document.getElementById('tts-voice-select-tiktok').value;
+                const fetchUrl = `${workerUrl}?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
+
+                const res = await fetch(fetchUrl);
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Worker returned HTTP ${res.status}`);
+                }
+                const blob = await res.blob();
+                if (!blob || blob.size < 100) throw new Error("Received empty audio stream.");
+                return blob;
             }
 
-            const voice = document.getElementById('tts-voice-select').value || 'Brian';
-            const fetchUrl = `${workerUrl}?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
+            if (engine === 'huggingface') {
+                const token = document.getElementById('hf-api-key').value.trim();
+                const modelId = document.getElementById('hf-model-id').value.trim() || 'facebook/mms-tts-eng';
+                if (!token) throw new Error("Hugging Face API token is required for this engine.");
 
-            const res = await fetch(fetchUrl);
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || `Worker returned HTTP ${res.status}`);
+                const res = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inputs: cleanText })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `Hugging Face HTTP ${res.status}`);
+                }
+                return await res.blob();
             }
 
-            const blob = await res.blob();
-            if (!blob || blob.size < 100) {
-                throw new Error("Received empty audio stream. Check that your Cloudflare Worker is deployed with the new script.");
+            if (engine === 'elevenlabs') {
+                const elevenKey = document.getElementById('eleven-api-key').value.trim();
+                const voiceId = document.getElementById('eleven-voice-id').value.trim() || 'pNInz6obpgDQGcFmaJgB';
+                if (!elevenKey) throw new Error("ElevenLabs API key is required.");
+
+                const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'xi-api-key': elevenKey },
+                    body: JSON.stringify({
+                        text: cleanText,
+                        model_id: 'eleven_multilingual_v2',
+                        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail?.message || `ElevenLabs HTTP ${res.status}`);
+                }
+                return await res.blob();
             }
-            return blob;
         }
 
         function getAudioBlobDuration(blob) {
@@ -1096,8 +1185,7 @@
                 progressBar.style.width = `${pct}%`;
                 updateTtsTotalStats();
 
-                // Smooth delay between cloud requests
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 600));
             }
 
             progressText.innerText = `Synthesized ${completed} of ${total} audio clips!`;
