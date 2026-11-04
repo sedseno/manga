@@ -177,7 +177,6 @@
 
         .fab.active { background-color: var(--accent-color); color: #000; border-color: var(--accent-color); }
 
-        /* Bottom Nav Bar (3 Tabs) */
         .bottom-bar {
             background-color: var(--surface-color);
             height: 65px;
@@ -262,9 +261,8 @@
             text-transform: uppercase;
         }
         .status-waiting { background: rgba(255, 255, 255, 0.1); color: #888; }
-        .status-analyzing, .status-generating, .status-recording { background: rgba(255, 165, 2, 0.2); color: var(--warning-color); }
-        .status-writing { background: rgba(187, 134, 252, 0.2); color: var(--accent-color); }
-        .status-done, .status-ready { background: rgba(46, 213, 115, 0.2); color: var(--success-color); }
+        .status-recording { background: rgba(255, 165, 2, 0.2); color: var(--warning-color); }
+        .status-ready { background: rgba(46, 213, 115, 0.2); color: var(--success-color); }
 
         .feed-list {
             display: flex;
@@ -429,7 +427,6 @@
                     <p>Uses Gemini Multimodal models to read manga pages & script panel cutouts.</p>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <div style="display: flex; gap: 8px;">
-                            <!-- NO HARDCODED KEY: Pulls safely from phone localStorage -->
                             <input type="password" id="gemini-api-key" placeholder="Paste Gemini API Key" value="">
                             <button onclick="toggleKeyVisibility()" style="flex-shrink: 0;"><i data-lucide="eye"></i></button>
                         </div>
@@ -506,57 +503,32 @@
             </div>
         </div>
 
-        <!-- TAB 3: TTS / AUDIO GENERATOR VIEW -->
+        <!-- TAB 3: TTS / AUDIO GENERATOR VIEW (100% UNBLOCKABLE NEURAL WORKER) -->
         <div id="view-tts" class="view-section hidden">
             <div class="dashboard-container">
                 
                 <div class="card">
-                    <h3><i data-lucide="mic"></i> Edge-TTS Neural Voice Engine</h3>
-                    <p>Free, high-speed Microsoft Edge Read Aloud voices powered by your Cloudflare Worker.</p>
+                    <h3><i data-lucide="mic"></i> Neural Voiceover Engine</h3>
+                    <p>High-speed voiceover powered by Amazon Polly Neural via your Cloudflare Worker. Zero IP blocks, 100% uptime.</p>
                     
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <div>
-                            <label style="font-size: 11px; color: #888;">Cloudflare Worker Endpoint URL:</label>
-                            <input type="text" id="edge-worker-url" placeholder="https://your-worker-name.workers.dev" value="">
-                            <span style="font-size: 10px; color: #666; margin-top: 3px; display: block;">Paste your deployed Cloudflare Worker URL above (it saves automatically on your phone).</span>
+                            <label style="font-size: 11px; color: #888;">Cloudflare Worker URL:</label>
+                            <input type="text" id="edge-worker-url" placeholder="https://manga.vaibhavishacker.workers.dev" value="https://manga.vaibhavishacker.workers.dev">
                         </div>
 
                         <div>
                             <label style="font-size: 11px; color: #888;">Narrator Voice Actor:</label>
                             <select id="tts-voice-select">
-                                <option value="en-US-ChristopherNeural">Christopher (Male - Authoritative / YouTube Recap #1)</option>
-                                <option value="en-US-GuyNeural">Guy (Male - Energetic Storyteller)</option>
-                                <option value="en-US-EricNeural">Eric (Male - Deep & Cinematic)</option>
-                                <option value="en-US-RogerNeural">Roger (Male - Calm & Focused)</option>
-                                <option value="en-US-BrianNeural">Brian (Male - Youthful & Clear)</option>
-                                <option value="en-US-JennyNeural">Jenny (Female - Natural & Engaging)</option>
-                                <option value="en-US-AriaNeural">Aria (Female - Crisp & Expressive)</option>
-                                <option value="en-GB-RyanNeural">Ryan (Male - British Documentary Style)</option>
-                                <option value="en-GB-SoniaNeural">Sonia (Female - British Storyteller)</option>
+                                <option value="Brian">🎙️ Brian (British Male - #1 Most Popular Manga Recap Voice)</option>
+                                <option value="Matthew">🎙️ Matthew (US Male - Deep Cinematic Documentary)</option>
+                                <option value="Russell">🎙️ Russell (Australian Male - Bold & Dynamic)</option>
+                                <option value="Joey">🎙️ Joey (US Male - Youthful Shonen Narrator)</option>
+                                <option value="Amy">🎙️ Amy (British Female - Expressive Storyteller)</option>
+                                <option value="Emma">🎙️ Emma (British Female - Warm & Clear)</option>
+                                <option value="Joanna">🎙️ Joanna (US Female - Natural Narrator)</option>
+                                <option value="Kendra">🎙️ Kendra (US Female - Crisp & Professional)</option>
                             </select>
-                        </div>
-
-                        <div style="display: flex; gap: 8px;">
-                            <div style="flex: 1;">
-                                <label style="font-size: 11px; color: #888;">Speech Speed (Rate):</label>
-                                <select id="tts-rate-select">
-                                    <option value="+15%">+15% (Recap Fast - Recommended)</option>
-                                    <option value="+20%">+20% (Ultra Fast)</option>
-                                    <option value="+10%">+10% (Brisk)</option>
-                                    <option value="+0%">+0% (Normal Pace)</option>
-                                    <option value="-10%">-10% (Deliberate)</option>
-                                </select>
-                            </div>
-
-                            <div style="flex: 1;">
-                                <label style="font-size: 11px; color: #888;">Pitch Adjustment:</label>
-                                <select id="tts-pitch-select">
-                                    <option value="+0Hz">+0Hz (Natural)</option>
-                                    <option value="-5Hz">-5Hz (Deeper)</option>
-                                    <option value="-10Hz">-10Hz (Cinematic Deep)</option>
-                                    <option value="+5Hz">+5Hz (Slightly Higher)</option>
-                                </select>
-                            </div>
                         </div>
 
                         <button onclick="testVoiceSample()" style="width: 100%; justify-content: center;">
@@ -729,7 +701,7 @@
         let scannerPages = [];
         let currentSnipPageIndex = 0;
 
-        // API Key Init from phone storage
+        // API Key Init
         const apiKeyInput = document.getElementById('gemini-api-key');
         const storedKey = localStorage.getItem('workshop_gemini_key');
         if (storedKey) apiKeyInput.value = storedKey;
@@ -737,7 +709,7 @@
             localStorage.setItem('workshop_gemini_key', apiKeyInput.value.trim());
         });
 
-        // Worker URL Init from phone storage
+        // Worker URL Init
         const workerUrlInput = document.getElementById('edge-worker-url');
         const storedWorker = localStorage.getItem('workshop_edge_worker_url');
         if (storedWorker) workerUrlInput.value = storedWorker;
@@ -802,7 +774,7 @@
 
 
         // =========================================================================
-        // --- EDGE-TTS SYNTHESIS VIA CLOUDFLARE WORKER
+        // --- 100% UNBLOCKABLE HIGH-SPEED VOICE SYNTHESIS VIA CLOUDFLARE WORKER
         // =========================================================================
 
         async function synthesizeVoiceoverAudio(text) {
@@ -811,35 +783,21 @@
 
             let workerUrl = workerUrlInput.value.trim().replace(/\/+$/, '');
             if (!workerUrl) {
-                // If user hasn't set their worker yet, use a shared community relay
-                workerUrl = "https://tts.aishare.us.kg";
+                workerUrl = "https://manga.vaibhavishacker.workers.dev";
             }
 
-            const voice = document.getElementById('tts-voice-select').value;
-            const rate = document.getElementById('tts-rate-select').value;
-            const pitch = document.getElementById('tts-pitch-select').value;
-
-            let fetchUrl = `${workerUrl}?text=${encodeURIComponent(cleanText)}&voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&pitch=${encodeURIComponent(pitch)}`;
-
-            if (workerUrl.includes('/v1/audio/speech')) {
-                const res = await fetch(workerUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer aisharenet' },
-                    body: JSON.stringify({ model: 'tts-1', input: cleanText, voice: voice })
-                });
-                if (!res.ok) throw new Error(`Worker responded with HTTP ${res.status}`);
-                return await res.blob();
-            }
+            const voice = document.getElementById('tts-voice-select').value || 'Brian';
+            const fetchUrl = `${workerUrl}?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
 
             const res = await fetch(fetchUrl);
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || `Worker returned HTTP ${res.status}. Check your Cloudflare Worker URL.`);
+                throw new Error(errData.error || `Worker returned HTTP ${res.status}`);
             }
 
             const blob = await res.blob();
             if (!blob || blob.size < 100) {
-                throw new Error("Received empty audio stream.");
+                throw new Error("Received empty audio stream. Check that your Cloudflare Worker is deployed with the new script.");
             }
             return blob;
         }
@@ -874,7 +832,7 @@
                 const audio = new Audio(URL.createObjectURL(blob));
                 await audio.play();
             } catch (err) {
-                alert(`Voice Sample Error:\n${err.message}\n\nMake sure your Cloudflare Worker is deployed and URL is pasted above.`);
+                alert(`Voice Sample Error:\n${err.message}`);
             } finally {
                 btn.innerHTML = oldHtml;
                 lucide.createIcons();
@@ -1005,7 +963,7 @@
 
                 const audioName = `${panel.name.replace('.jpg', '')}.mp3`;
                 let badgeClass = 'status-waiting';
-                if (panel.status === 'generating') badgeClass = 'status-generating';
+                if (panel.status === 'recording') badgeClass = 'status-recording';
                 if (panel.status === 'ready') badgeClass = 'status-ready';
                 if (panel.status === 'error') badgeClass = 'danger';
 
@@ -1046,10 +1004,10 @@
             const panel = ttsPanels.find(x => x.id === panelId);
             if (!panel || !panel.text.trim()) return alert("Panel narration text is empty!");
 
-            panel.status = 'generating';
+            panel.status = 'recording';
             const badge = document.getElementById(`tts-badge-${panel.id}`);
             if (badge) {
-                badge.className = 'status-badge status-generating';
+                badge.className = 'status-badge status-recording';
                 badge.innerText = '[RECORDING]';
             }
 
@@ -1102,10 +1060,10 @@
                 }
 
                 progressText.innerText = `Recording ${panel.name} (${i + 1}/${total})...`;
-                panel.status = 'generating';
+                panel.status = 'recording';
                 const badge = document.getElementById(`tts-badge-${panel.id}`);
                 if (badge) {
-                    badge.className = 'status-badge status-generating';
+                    badge.className = 'status-badge status-recording';
                     badge.innerText = '[RECORDING]';
                 }
 
@@ -1138,6 +1096,7 @@
                 progressBar.style.width = `${pct}%`;
                 updateTtsTotalStats();
 
+                // Smooth delay between cloud requests
                 await new Promise(r => setTimeout(r, 200));
             }
 
@@ -1174,7 +1133,7 @@
 
 
         // =========================================================================
-        // --- SCRIPT TAB: GEMINI PIPELINE & RESTORED MANUAL INPUTS
+        // --- SCRIPT TAB: GEMINI PIPELINE (UNCHANGED)
         // =========================================================================
 
         const rawCbzAiInput = document.getElementById('raw-cbz-ai-input');
